@@ -1,141 +1,98 @@
 Part 2 - World's Simplest SQL Compiler and Virtual Machine
-============================================================
+==========================================================
 
-We're making a clone of SQLite. The "front-end" of SQLite is a SQL compiler that parses a string and outputs an internal representation called bytecode.
+We're making a clone of SQLite. The "front-end" of SQLite is a SQL compiler that
+parses a string and outputs an internal representation called bytecode.
 
 This bytecode is passed to the virtual machine, which executes it.
 
 Breaking things into two steps like this has a couple advantages:
 
-* Reduces the complexity of each part (e.g. virtual machine does not worry about syntax errors)
-* Allows compiling common queries once and caching the bytecode for improved performance
+- Reduces the complexity of each part (e.g. virtual machine does not worry about
+  syntax errors)
+- Allows compiling common queries once and caching the bytecode for improved
+  performance
 
-Imports from Phase 01
----------------------
+With this in mind, let's refactor our ``main`` function and support two new
+keywords in the process.
 
-Phase 02 imports the input handling from Phase 01:
+Meta-Commands vs SQL Statements
+-------------------------------
 
-.. code-block:: zig
+Non-SQL statements like ``.exit`` are called "meta-commands". They all start with
+a dot, so we check for them and handle them in a separate function.
 
-    const phase01 = @import("phase01");
-    
-    // Use imported types
-    var input_buffer = try phase01.InputBuffer.init(allocator);
-    phase01.printPrompt();
-    phase01.readInput(&input_buffer);
+Next, we add a step that converts the line of input into our internal representation
+of a statement. This is our hacky version of the SQLite front-end.
 
-Meta Commands
--------------
+Lastly, we pass the prepared statement to ``execute_statement``. This function will
+eventually become our virtual machine.
 
-Non-SQL statements like ``.exit`` are called "meta-commands". They all start with a dot, so we check for them and handle them in a separate function.
+The Parser
+----------
 
-In Zig, we use enums to represent the different possible results:
-
-.. code-block:: zig
-
-    pub const MetaCommandResult = enum {
-        success,
-        unrecognized_command,
-    };
-
-Unlike C, Zig enums are type-safe and the compiler will warn if a switch statement doesn't handle all cases.
-
-Statement Parsing
------------------
-
-Next, we add a step that converts the line of input into our internal representation of a statement:
-
-.. code-block:: zig
-
-    pub const PrepareResult = enum {
-        success,
-        syntax_error,
-        unrecognized_statement,
-    };
-
-    pub const StatementType = enum {
-        insert,
-        select,
-    };
-
-    pub const Statement = struct {
-        statement_type: StatementType,
-    };
-
-Parser Module
--------------
-
-The complete parser module:
+We use enums for result codes. Zig enums are type-safe and the compiler will warn
+if we don't handle all cases in a switch:
 
 .. literalinclude:: ../../src/phase02/parser.zig
    :language: zig
    :caption: src/phase02/parser.zig
-   :linenos:
 
-Unit Tests
-----------
+Notice that we use ``strncmp`` logic for "insert" (checking the first 6 characters)
+since the "insert" keyword will be followed by data (e.g. ``insert 1 cstack foo@bar.com``).
 
-Tests validate our parser:
+Key Zig features:
 
-.. literalinclude:: ../../src/phase02/tests.zig
-   :language: zig
-   :caption: src/phase02/tests.zig
-   :linenos:
+- **Enums**: Type-safe result codes that replace C's #define constants
+- **std.mem.eql**: Safe string comparison
+- **Slice syntax**: ``input[0..6]`` for substring access with bounds checking
 
-Main Entry Point
-----------------
+Main with Parsing
+-----------------
 
-The main function ties it all together:
+The main loop now routes commands appropriately:
 
 .. literalinclude:: ../../src/phase02/main.zig
    :language: zig
    :caption: src/phase02/main.zig
-   :linenos:
 
-Let's Try It
-------------
+The flow is:
 
-.. code-block:: shell
+1. Check if input starts with ``.`` (meta-command)
+2. If meta-command, handle it specially
+3. Otherwise, try to parse as SQL statement
+4. Execute the statement (currently just prints a message)
 
-    $ zig build run-phase02
+Running Phase 2
+---------------
+
+.. code-block:: bash
+
+    zig build run-phase02
+
+With these refactors, we now recognize two new keywords:
+
+.. code-block:: text
+
+    ~ zig build run-phase02
     db > insert foo bar
-    This is where we would do an insert.
     Executed.
     db > delete foo
-    Unrecognized keyword at start of 'delete foo'.
+    Unrecognized keyword.
     db > select
-    This is where we would do a select.
     Executed.
+    db > .tables
+    Unrecognized command '.tables'
     db > .exit
+    ~
 
-Zig Switch Expressions
-----------------------
+The skeleton of our database is taking shape... wouldn't it be nice if it stored
+data? In the next part, we'll implement ``insert`` and ``select``, creating the
+world's worst data store.
 
-Unlike C's switch statements, Zig's ``switch`` is an expression that can return values. Combined with enums, the compiler ensures all cases are handled:
+Tests
+-----
 
-.. code-block:: zig
-
-    switch (parser.doMetaCommand(input)) {
-        .success => continue,
-        .unrecognized_command => {
-            stdout.print("Unrecognized command\n", .{}) catch {};
-            continue;
-        },
-    }
-
-If we forgot to handle a case, the compiler would error.
-
-Exports for Next Phase
-----------------------
-
-* ``Statement`` - Parsed statement struct
-* ``StatementType`` - enum { insert, select }
-* ``PrepareResult`` - Parsing result enum
-* ``MetaCommandResult`` - Meta command result enum
-* ``prepareStatement()`` - Parse input into statement
-* ``doMetaCommand()`` - Handle meta commands
-* ``isMetaCommand()`` - Check if input starts with '.'
-
-The skeleton of our database is taking shape! In the next part, we'll implement actual ``insert`` and ``select`` operations.
-
-Next: :doc:`part03` - An In-Memory, Append-Only, Single-Table Database
+.. literalinclude:: ../../src/phase02/tests.zig
+   :language: zig
+   :caption: src/phase02/tests.zig

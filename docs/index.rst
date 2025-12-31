@@ -1,13 +1,15 @@
-How Does a Database Work?
-=========================
+Building a Database in Zig
+============================
 
-We're building a clone of SQLite from scratch in Zig to understand how databases work.
+This tutorial walks through building a simple database from scratch in Zig,
+based on the original `db_tutorial <https://github.com/cstack/db_tutorial>`_ in C.
 
-Table of Contents
------------------
+Each phase builds upon the previous, progressively adding features while
+demonstrating Zig's strengths in systems programming.
 
 .. toctree::
    :maxdepth: 2
+   :caption: Contents:
 
    parts/part01
    parts/part02
@@ -25,28 +27,8 @@ Table of Contents
    parts/part14
    parts/part15
 
-*"What I cannot create, I do not understand."* -- Richard Feynman
+Indices and tables
+==================
 
-Module Architecture
--------------------
-
-Each phase is a Zig module that imports from previous phases:
-
-.. code-block:: text
-
-    Phase 01 (Input) → Phase 02 (Parser) → Phase 03 (Storage) → ...
-         ↓                  ↓                    ↓
-    input.zig          parser.zig          row.zig, table.zig
-    tests.zig          tests.zig           tests.zig
-    main.zig           main.zig            main.zig
-
-Running the Code
-----------------
-
-.. code-block:: bash
-
-    # Run any phase
-    zig build run-phase04
-    
-    # Run tests
-    zig build test
+* :ref:`genindex`
+* :ref:`search`

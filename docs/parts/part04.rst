@@ -1,135 +1,89 @@
 Part 4 - Our First Tests (and Bugs)
-====================================
+===================================
 
-We've been adding capabilities to insert rows and print them out. Let's add some tests and fix bugs.
+We've got the ability to insert rows into our database and to print out all
+rows. Let's take a moment to test what we've got so far.
 
-In the original C tutorial, rspec tests were used. In Zig, we'll use the built-in test framework for unit tests, and the executables can be tested interactively.
+In the original C tutorial, tests are written in Ruby using RSpec. In Zig,
+we'll use the built-in test framework, which integrates with ``zig build test``.
 
-Imports from Previous Phases
-----------------------------
-
-Phase 04 imports from all previous phases:
-
-.. code-block:: zig
-
-    const phase01 = @import("phase01");  // Input handling
-    const phase02 = @import("phase02");  // Meta commands
-    const phase03 = @import("phase03");  // Row, Table
-
-Validation Module
------------------
-
-We need to validate input before inserting:
-
-1. **Negative IDs**: The id should be positive
-2. **Long strings**: Username and email have maximum lengths
-
-Extended ``prepareInsert`` with validation:
-
-.. literalinclude:: ../../src/phase04/validation.zig
-   :language: zig
-   :caption: src/phase04/validation.zig
-   :linenos:
-
-Key Validation Logic
-~~~~~~~~~~~~~~~~~~~~
-
-.. code-block:: zig
-
-    // Parse ID - check for negative
-    const signed_id = std.fmt.parseInt(i64, id_str, 10) catch return .syntax_error;
-    if (signed_id < 0) {
-        return .negative_id;
-    }
-    
-    // Parse username - check length
-    if (username.len > phase03.COLUMN_USERNAME_SIZE) {
-        return .string_too_long;
-    }
-
-Unit Tests
-----------
-
-Comprehensive tests for validation edge cases:
-
-.. literalinclude:: ../../src/phase04/tests.zig
-   :language: zig
-   :caption: src/phase04/tests.zig
-   :linenos:
-
-Main Entry Point
+Input Validation
 ----------------
+
+Reading through the code we have so far, there are several edge cases we
+need to handle:
+
+1. **Table full**: What happens when we try to insert more rows than fit?
+2. **Strings too long**: What if username or email exceed their limits?
+3. **Negative IDs**: IDs should be positive integers.
+
+Let's add validation:
 
 .. literalinclude:: ../../src/phase04/main.zig
    :language: zig
    :caption: src/phase04/main.zig
-   :linenos:
 
-Let's Try It
-------------
+Key validations:
 
-.. code-block:: shell
+- Check if ``id`` is negative and return ``ID must be positive.``
+- Check if username length > 32 or email length > 255
+- Check for table full condition
 
-    $ zig build run-phase04
-    db > insert -1 user foo@bar.com
-    ID must be positive.
-    db > insert 1 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa foo@bar.com
-    String is too long.
-    db > insert 1 alice alice@example.com
-    Executed.
-    db > select
-    (1, alice, alice@example.com)
-    Executed.
-    db > .exit
+Zig's Advantage
+---------------
 
-Running Tests
-~~~~~~~~~~~~~
-
-.. code-block:: shell
-
-    $ zig build test-phase04
-    All 8 tests passed.
-
-Test Cases Covered
-------------------
-
-1. Valid input accepted
-2. Negative ID rejected
-3. Username too long rejected
-4. Max-length username accepted
-5. Missing fields rejected
-6. Non-numeric ID rejected
-7. Select statement recognized
-8. Unknown statement rejected
-
-Exports for Next Phase
-----------------------
-
-* ``PrepareResult`` - Extended with ``negative_id``, ``string_too_long``
-* ``Statement`` - With validated row data
-* ``prepareInsert()`` - With full validation
-* ``prepareStatement()`` - Delegates to prepareInsert for inserts
-
-Zig vs C: Type Safety
----------------------
-
-In C, we would check return values manually. In Zig, the type system enforces error handling:
+Zig's explicit error handling shines here. Instead of C's approach of
+returning magic numbers or setting errno, we use error unions:
 
 .. code-block:: zig
 
-    switch (validation.prepareStatement(input, &statement)) {
-        .success => {},
-        .negative_id => {
-            stdout.print("ID must be positive.\n", .{}) catch {};
-            continue;
-        },
-        .string_too_long => {
-            stdout.print("String is too long.\n", .{}) catch {};
-            continue;
-        },
-        // ... all cases must be handled
-    }
+    const PrepareResult = enum {
+        success,
+        syntax_error,
+        string_too_long,
+        negative_id,
+        unrecognized_statement,
+    };
 
-If we add a new error case to ``PrepareResult``, the compiler will force us to handle it everywhere.
+The compiler ensures we handle every case in our switch statements. If we
+add a new error variant, the compiler will point out every place we need
+to handle it.
 
-Next: :doc:`part05` - Persistence to Disk
+Running Phase 4
+---------------
+
+.. code-block:: bash
+
+    zig build run-phase04
+
+Try inserting invalid data:
+
+.. code-block:: text
+
+    db > insert -1 cstack foo@bar.com
+    ID must be positive.
+    db > insert 1 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa a@b.com
+    String is too long.
+
+Tests
+-----
+
+Our tests verify:
+
+- Basic insert and retrieval works
+- Maximum length strings are accepted
+- Strings that are too long are rejected
+- Negative IDs are rejected
+
+.. literalinclude:: ../../src/phase04/tests.zig
+   :language: zig
+   :caption: src/phase04/tests.zig
+
+Run tests with:
+
+.. code-block:: bash
+
+    zig build test
+
+Now would be a great time to add persistence. Next we'll save our database
+to a file and read it back out again. It's gonna be great.
