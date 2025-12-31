@@ -88,8 +88,12 @@ Gemfile.lock
 _site/
 
 # AI
+PLAN.md
 .claude
 CLAUDE.md
 AGENTS.md
 
 db_tutorial
+zig-out/
+.zig-cache/
+_build/
