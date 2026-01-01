@@ -49,7 +49,7 @@ docs:
 	cd docs && sphinx-build -b html . _build/html
 
 docs-serve:
-	cd docs/_build/html && python3 -m http.server 8000
+	cd docs/_build/html && python3 -m http.server 8888
 
 clean:
 	rm -rf zig-out .zig-cache docs/_build
